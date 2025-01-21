@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+venv/
+.env
+*.h5
+best_model.h5
