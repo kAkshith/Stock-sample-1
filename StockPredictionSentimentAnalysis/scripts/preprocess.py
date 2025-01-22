@@ -12,24 +12,23 @@ def clean_tweet(tweet):
 
 def preprocess_data():
     """Load and preprocess the data."""
-    # Load the dataset
-    data_path = "StockPredictionSentimentAnalysis/data/stock_tweets.csv"
-    data = pd.read_csv(data_path)
+    data_path = 'data/stock_tweets.csv'
+    
+    try:
+        data = pd.read_csv(data_path, names=['Tweet', 'Symbol', 'Company'])
+        print(f"Successfully loaded data from {data_path}")
+    except FileNotFoundError:
+        print(f"Error: Could not find {data_path}")
+        return
 
-    # Clean the tweets
     data["Cleaned_Tweet"] = data["Tweet"].apply(clean_tweet)
-
-    # Label data (Example: Map positive/negative labels manually if no labels exist)
-    # You can use a pretrained sentiment analyzer here or manually label a subset of data.
     data["Sentiment"] = data["Cleaned_Tweet"].apply(lambda x: "positive" if "profit" in x or "buy" in x else "negative")
-
-    # Split data into training and testing sets
+    
     train, test = train_test_split(data, test_size=0.2, random_state=42)
-
-    # Save processed data
-    train.to_csv("StockPredictionSentimentAnalysis/data/train.csv", index=False)
-    test.to_csv("StockPredictionSentimentAnalysis/data/test.csv", index=False)
-
+    
+    train.to_csv("data/train.csv", index=False)
+    test.to_csv("data/test.csv", index=False)
+    
     print("Data preprocessing completed!")
 
 if __name__ == "__main__":

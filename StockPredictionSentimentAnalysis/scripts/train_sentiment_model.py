@@ -30,50 +30,56 @@ class TweetDataset(Dataset):
             "labels": label,
         }
 
+def create_dataset(data, tokenizer, max_len=64):  # Reduced from 128 to 64
+    # Take a subset of data for faster training
+    data = data.sample(n=min(1000, len(data)), random_state=42)
+    texts = data['Cleaned_Tweet'].tolist()
+    labels = [1 if label == 'positive' else 0 for label in data['Sentiment'].tolist()]
+    return TweetDataset(texts, labels, tokenizer, max_len)
+
 def train_model():
-    # Load preprocessed data
-    train_data = pd.read_csv("StockPredictionSentimentAnalysis/data/train.csv")
-
-    # Encode labels
-    label_mapping = {"positive": 1, "negative": 0}
-    train_data["Sentiment"] = train_data["Sentiment"].map(label_mapping)
-
-    # Initialize BERT tokenizer
-    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-
-    # Prepare dataset
-    train_dataset = TweetDataset(
-        train_data["Cleaned_Tweet"].tolist(),
-        train_data["Sentiment"].tolist(),
-        tokenizer,
-        max_len=128,
-    )
-
-    # Load pre-trained BERT model
-    model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=2)
-
-    # Define training arguments
+    # Load training data
+    train_data = pd.read_csv("data/train.csv")
+    test_data = pd.read_csv("data/test.csv")
+    
+    # Use smaller BERT model
+    model_name = 'prajjwal1/bert-tiny'  # Much smaller than bert-base-uncased
+    tokenizer = BertTokenizer.from_pretrained(model_name)
+    model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)
+    
+    train_dataset = create_dataset(train_data, tokenizer)
+    eval_dataset = create_dataset(test_data, tokenizer)
+    
+    # Define model save path
+    model_save_path = "./models/sentiment_model"
+    
     training_args = TrainingArguments(
-        output_dir="StockPredictionSentimentAnalysis/models/sentiment_model",
-        evaluation_strategy="epoch",
-        save_strategy="epoch",
-        learning_rate=2e-5,
-        per_device_train_batch_size=16,
-        num_train_epochs=3,
+        output_dir=model_save_path,
+        num_train_epochs=2,
+        per_device_train_batch_size=32,
+        per_device_eval_batch_size=32,
+        warmup_steps=100,
         weight_decay=0.01,
+        logging_dir="./logs",
+        evaluation_strategy="steps",
+        eval_steps=50,
+        save_steps=50,
+        load_best_model_at_end=True
     )
-
-    # Train the model
+    
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
+        eval_dataset=eval_dataset
     )
-
+    
     trainer.train()
-    model.save_pretrained("StockPredictionSentimentAnalysis/models/sentiment_model")
-    tokenizer.save_pretrained("StockPredictionSentimentAnalysis/models/sentiment_model")
-
+    
+    # Save the model and tokenizer
+    model.save_pretrained(model_save_path)
+    tokenizer.save_pretrained(model_save_path)
+    
     print("Model training completed!")
 
 if __name__ == "__main__":
